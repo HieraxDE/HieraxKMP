@@ -38,6 +38,8 @@ fun Ide() {
     var codeInput by remember {
         mutableStateOf(TextFieldValue(
             """
+            // These are template programs for Kotlin and Java provided by the IDE.    
+                
             public class Main {
                 public static void main(String[] args) {
                     System.out.println("Hello from Java!");
@@ -54,7 +56,7 @@ fun Ide() {
             """.trimIndent()
         ))
     }
-    var outputText by remember { mutableStateOf("output will appear here...\n") }
+    var outputText by remember { mutableStateOf("Output will appear here...\n") }
     var isRunning by remember { mutableStateOf(false) }
     var currentProcess by remember { mutableStateOf<Process?>(null) }
     var isKotlinMode by remember { mutableStateOf(false) }
@@ -73,7 +75,7 @@ fun Ide() {
     fun cleanupTempFiles() {
         if (tempDir.exists()) {
             tempDir.deleteRecursively()
-            appendOutput("cleaned up temporary files.")
+            appendOutput("Cleaned up temporary files.")
         }
     }
 
@@ -81,7 +83,7 @@ fun Ide() {
         if (isRunning) return
         clearOutput()
         isRunning = true
-        appendOutput("starting execution (${if (isKotlinMode) "Kotlin" else "Java"})...")
+        appendOutput("Starting execution (${if (isKotlinMode) "Kotlin" else "Java"})...")
 
         coroutineScope.launch(Dispatchers.IO) {
             try {
@@ -91,10 +93,10 @@ fun Ide() {
                 val scriptFileName = if (isKotlinMode) TEMP_KOTLIN_SCRIPT_NAME else TEMP_JAVA_SCRIPT_NAME
                 val scriptFile = File(tempDir, scriptFileName)
                 scriptFile.writeText(codeInput.text)
-                appendOutput("saved code to ${scriptFile.absolutePath}")
+                appendOutput("Saved code to ${scriptFile.absolutePath}")
 
                 if (isKotlinMode) {
-                    appendOutput("compiling Kotlin...")
+                    appendOutput("Compiling Kotlin...")
                     val kotlincProcessBuilder = ProcessBuilder(
                         "kotlinc",
                         scriptFile.name,
@@ -116,7 +118,7 @@ fun Ide() {
                     }
                     appendOutput("Kotlin compilation successful: ${File(tempDir, TEMP_JAR_NAME).absolutePath}")
 
-                    appendOutput("running Kotlin JAR...")
+                    appendOutput("Running Kotlin JAR...")
                     val javaProcessBuilder = ProcessBuilder(
                         "java", "-jar", TEMP_JAR_NAME
                     ).directory(tempDir).redirectErrorStream(true)
@@ -130,7 +132,7 @@ fun Ide() {
                     appendOutput("Kotlin execution finished with exit code $runExitCode.")
 
                 } else {
-                    appendOutput("compiling Java...")
+                    appendOutput("Compiling Java...")
                     val javacProcessBuilder = ProcessBuilder(
                         "javac",
                         scriptFile.name
@@ -186,7 +188,7 @@ fun Ide() {
 
     fun stopCode() {
         if (!isRunning || currentProcess == null) return
-        appendOutput("attempting to stop process...")
+        appendOutput("Attempting to stop process...")
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 currentProcess?.destroyForcibly()
@@ -214,7 +216,7 @@ fun Ide() {
                             checked = isKotlinMode,
                             onCheckedChange = {
                                 isKotlinMode = it
-                                appendOutput("switched to ${if (it) "Kotlin" else "Java"} mode.")
+                                appendOutput("Switched to ${if (it) "Kotlin" else "Java"} mode.")
                             },
                             enabled = !isRunning,
                             colors = SwitchDefaults.colors(
@@ -301,7 +303,7 @@ fun main() = application {
         onCloseRequest = {
             val tempDir = File(TEMP_DIR_NAME)
             if (tempDir.exists()) {
-                println("cleaning up temporary files on exit...")
+                println("Cleaning up temporary files on exit...")
                 tempDir.deleteRecursively()
             }
             exitApplication()
