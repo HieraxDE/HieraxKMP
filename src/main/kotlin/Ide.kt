@@ -12,19 +12,34 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.TextRange
 import kotlinx.coroutines.*
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import java.util.regex.Pattern
 
 const val TEMP_DIR_NAME = "ide_temp_run"
 const val TEMP_KOTLIN_SCRIPT_NAME = "Main.kt"
@@ -62,6 +77,22 @@ fun Ide() {
     var isKotlinMode by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
+    val defaultColorTheme = IDETheme(
+        SpanStyle(color = Color.Cyan, fontWeight = FontWeight.Bold),
+        SpanStyle(Color.Blue),
+        SpanStyle(Color.DarkGray),
+        SpanStyle(Color.Blue),
+        SpanStyle(Color.hsv(30f, 0.76f, 0.4f)),
+        SpanStyle(Color.Blue),
+        SpanStyle(Color.Black),
+        SpanStyle(Color.hsv(24f, 1f, 1f)),
+        SpanStyle(Color.hsv(24f, 1f, 1f)),
+        SpanStyle(Color.hsv(104f, 0.82f, 0.25f)),
+        SpanStyle(Color.Blue),
+        Color.White,
+        Color.Gray,
+        SpanStyle(color = Color.Red, textDecoration = TextDecoration.Underline)
+    )
     val tempDir = File(TEMP_DIR_NAME)
 
     fun appendOutput(line: String) {
@@ -255,15 +286,125 @@ fun Ide() {
             )
 
             BasicTextField(
+                visualTransformation = {
+                    val transformedText = buildAnnotatedString {
+                        val text = it.text
+                        var currentIndex = 0
+
+                        val keywordPattern = "\\b(public|private|protected|abstract|class|extends|final|implements|interface|native|new|static|strictfp|synchronized|transient|volatile|break|case|continue|default|do|else|for|if|return|switch|while|assert|finally|throw|throws|try|import|package|super|this|void|enum|instanceof|var|yield|sealed|permits|record|module|requires|exports|opens|uses|provides|to|with|transitive)\\b"
+                        val identifierPattern = "\\b[A-Za-z][A-Za-z0-9_]*\\b"
+                        val booleanPattern = "\\b(true|false)\\b"
+                        val typePattern = "\\b(boolean|byte|char|double|float|int|long|short|void|null)\\b"
+                        val numberPattern = "\\b\\d+\\b"
+                        val symbolsPattern = "[!@#$%^&*()\\[\\]{}\\-+=|:;/?.,<>~]"
+                        val commentPattern = "(/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*/|//[^\\n]*)"
+                        val stringPattern = "\"[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*\""
+                        val charPattern = "'([^'\\\\]|\\\\[btnfr'\"\\\\])'"
+
+                        val combinedPattern = Pattern.compile(
+                            "$keywordPattern|$identifierPattern|$booleanPattern|$typePattern|$numberPattern|$commentPattern|$stringPattern|$charPattern|$symbolsPattern"
+                        )
+
+                        val matcher = combinedPattern.matcher(text)
+
+                        while (currentIndex < text.length) {
+                            if (matcher.find(currentIndex)) {
+                                if (matcher.start() > currentIndex) {
+                                    append(text.substring(currentIndex, matcher.start()))
+                                }
+                                
+                                val matchedText = matcher.group()
+                                
+                                when {
+                                    matchedText.matches(Regex(keywordPattern)) -> {
+                                        withStyle(defaultColorTheme.keywords) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    matchedText.matches(Regex(identifierPattern)) -> {
+                                        withStyle(defaultColorTheme.identifiers) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    matchedText.matches(Regex(booleanPattern)) -> {
+                                        withStyle(defaultColorTheme.literals) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    matchedText.matches(Regex(typePattern)) -> {
+                                        withStyle(defaultColorTheme.types) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    matchedText.matches(Regex(numberPattern)) -> {
+                                        withStyle(defaultColorTheme.numbers) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    matchedText.matches(Regex(commentPattern)) -> {
+                                        withStyle(defaultColorTheme.comments) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    matchedText.matches(Regex(stringPattern)) -> {
+                                        withStyle(defaultColorTheme.strings) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    matchedText.matches(Regex(charPattern)) -> {
+                                        withStyle(defaultColorTheme.strings) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    matchedText.matches(Regex(symbolsPattern)) -> {
+                                        withStyle(defaultColorTheme.scopes) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                    else -> {
+                                        withStyle(defaultColorTheme.error) {
+                                            append(matchedText)
+                                        }
+                                    }
+                                }
+                                currentIndex = matcher.end()
+                            } else {
+                                append(text.substring(currentIndex))
+                                break
+                            }
+                        }
+                    }
+                    TransformedText(transformedText, offsetMapping = OffsetMapping.Identity)
+                },
                 value = codeInput,
                 onValueChange = { codeInput = it },
                 modifier = Modifier
                     .weight(0.7f)
                     .fillMaxWidth()
                     .padding(8.dp)
-                    .background(Color.White),
+                    .background(Color.Gray)
+                    .onPreviewKeyEvent { keyEvent: KeyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Tab) {
+                            val text = codeInput.text
+                            val start = codeInput.selection.start
+                            val end = codeInput.selection.end
+                            val newText = buildString {
+                                append(text.substring(0, start))
+                                append("    ")
+                                append(text.substring(end))
+                            }
+                            val newCursor = start + 4
+                            codeInput = TextFieldValue(
+                                text = newText,
+                                selection = TextRange(newCursor)
+                            )
+                            true
+                        } else {
+                            false
+                        }
+                    },
                 textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp, color = LocalContentColor.current),
-                singleLine = false
+                singleLine = false,
             )
 
             Divider()
