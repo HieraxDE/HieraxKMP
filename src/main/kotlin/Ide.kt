@@ -34,7 +34,7 @@ const val TEMP_CLASS_NAME = "Main"
 
 @Composable
 @Preview
-fun Ide() {
+fun Ide(projectPath: File) {
     var codeInput by remember {
         mutableStateOf(TextFieldValue(
             """
@@ -309,6 +309,6 @@ fun main() = application {
         title = "Simple Kotlin/Java IDE",
         state = windowState
     ) {
-        Ide()
+        Ide(File("."))
     }
 }
